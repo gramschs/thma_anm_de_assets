@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SCARA: Drehung um Gelenk 2</title>
+<!--
+  Applet zu Kapitel 5.3 (Homogene Koordinaten am Roboterarm).
+  URL-Parameter:
+    lang=en   englische Fassung (Standard: deutsch)
+    tab=2     startet im Reiter "Beide Gelenke" (Standard: "Drehung um Gelenk 2")
+-->
+<style>
+:root {
+  --bg: #fafaf7; --surface: #ffffff; --border: #ddddd0; --text: #1c1c1a; --muted: #666660;
+  --radius: 10px; --shadow: 0 3px 16px rgba(0,0,0,.09);
+  --font-body: Georgia, "Times New Roman", serif;
+  --font-ui: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-code: SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --blau: #005A94; --orange: #E87846; --rot: #E60000; --grau: #484949; --hellgrau: #F3F4F4;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+body { background: transparent; padding: 4px; }
+.applet { font-family: var(--font-body); color: var(--text); background: var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow);
+  overflow: hidden; max-width: 720px; margin: 0 auto; }
+header { padding: 14px 22px 10px; border-bottom: 1px solid var(--border); background: #f3f4f6; }
+header h1 { font-size: 1.1rem; font-weight: 400; letter-spacing: .02em; }
+header p { margin-top: 4px; font-size: .82rem; font-family: var(--font-ui); color: var(--muted); line-height: 1.5; }
+.tabs { display: flex; border-bottom: 1px solid var(--border); font-family: var(--font-ui); }
+.tabs button { flex: 1; border: none; border-radius: 0; background: var(--bg); padding: 8px 10px;
+  font-size: .85rem; color: var(--muted); border-bottom: 3px solid transparent; }
+.tabs button.active { background: var(--surface); color: var(--text); border-bottom-color: var(--orange); font-weight: 700; }
+.status { padding: 9px 22px 0; font-family: var(--font-ui); font-size: .88rem; font-weight: 600; color: var(--grau); min-height: 2.1em; }
+.chart-wrap { padding: 4px 10px 0; }
+.chart-wrap svg { width: 100%; height: auto; display: block; }
+.controls { padding: 10px 22px 12px; display: flex; flex-direction: column; gap: 10px;
+  border-top: 1px solid var(--border); font-family: var(--font-ui); font-size: .85rem; }
+.slider-row { display: flex; align-items: center; gap: 12px; }
+.slider-row label { min-width: 18px; color: var(--muted); font-style: italic; }
+.slider-row input[type=range] { flex: 1; accent-color: var(--orange); cursor: pointer; }
+.value { min-width: 48px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+.button-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+button { font-family: var(--font-ui); font-size: .8rem; padding: 5px 11px; border: 1px solid var(--border);
+  border-radius: 4px; background: var(--bg); cursor: pointer; color: var(--text); }
+button:hover:not(:disabled) { background: #f0ede0; border-color: #bbb; }
+button:disabled { opacity: .4; cursor: default; }
+button.next, button.selected { background: var(--orange); color: #fff; border-color: var(--orange); }
+button.next:hover:not(:disabled), button.selected:hover:not(:disabled) { background: #d9693a; border-color: #d9693a; }
+.check { display: flex; align-items: center; gap: 8px; cursor: pointer; color: var(--rot); }
+.check input { accent-color: var(--rot); }
+.code { font-family: var(--font-code); font-size: 12.5px; line-height: 1.55; background: var(--hellgrau);
+  border-top: 1px solid var(--border); padding: 8px 0; overflow-x: auto; }
+.code div { padding: 1px 22px; white-space: pre; }
+.code .active { background: #fbe1d4; }
+.code .comment { color: #6a6a66; }
+.code .wrong, .code .wrong .comment { color: var(--rot); }
+.info-bar { display: flex; flex-wrap: wrap; border-top: 1px solid var(--border); background: #f3f4f6; font-family: var(--font-ui); }
+.info-tile { flex: 1; min-width: 150px; padding: 9px 16px; display: flex; flex-direction: column; gap: 2px;
+  border-right: 1px solid var(--border); }
+.info-tile:last-child { border-right: none; }
+.info-label { font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.info-value { font-size: 1.05rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div class="applet">
+  <header>
+    <h1 id="titel"></h1>
+    <p id="anleitung"></p>
+  </header>
+  <div class="tabs">
+    <button id="tab1" type="button"></button>
+    <button id="tab2" type="button"></button>
+  </div>
+  <div id="status" class="status" aria-live="polite"></div>
+  <div class="chart-wrap">
+    <svg id="bild" viewBox="0 0 640 440" preserveAspectRatio="xMidYMid meet" role="img"></svg>
+  </div>
+
+  <!-- Reiter 1: Drehung um Gelenk 2 in drei Schritten -->
+  <div id="steuerung1" class="controls">
+    <div class="slider-row">
+      <label for="beta1">β</label>
+      <input id="beta1" type="range" min="-180" max="180" step="1" value="90">
+      <span id="beta1-wert" class="value"></span>
+    </div>
+    <div class="button-row">
+      <button id="schritt1" type="button"></button>
+      <button id="schritt2" type="button"></button>
+      <button id="schritt3" type="button"></button>
+      <button id="vonvorn" type="button"></button>
+    </div>
+    <label class="check"><input id="falsch" type="checkbox"> <span id="falsch-text"></span></label>
+  </div>
+  <div id="code1" class="code"></div>
+
+  <!-- Reiter 2: beide Gelenke, Reihenfolge der Matrizen -->
+  <div id="steuerung2" class="controls" hidden>
+    <div class="slider-row">
+      <label for="alpha2">α</label>
+      <input id="alpha2" type="range" min="-180" max="180" step="1" value="30">
+      <span id="alpha2-wert" class="value"></span>
+    </div>
+    <div class="slider-row">
+      <label for="beta2">β</label>
+      <input id="beta2" type="range" min="-150" max="150" step="1" value="60">
+      <span id="beta2-wert" class="value"></span>
+    </div>
+    <div class="button-row">
+      <button id="richtig" type="button"></button>
+      <button id="vertauscht" type="button"></button>
+      <button id="abspielen" type="button"></button>
+    </div>
+  </div>
+  <div id="code2" class="code" hidden></div>
+  <div id="info2" class="info-bar" hidden>
+    <div class="info-tile"><span id="info-l1" class="info-label"></span><span id="info-v1" class="info-value"></span></div>
+    <div class="info-tile"><span id="info-l2" class="info-label"></span><span id="info-v2" class="info-value"></span></div>
+    <div class="info-tile"><span id="info-l3" class="info-label"></span><span id="info-v3" class="info-value"></span></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  // ---------- Texte ----------
+  const TEXTE = {
+    de: {
+      titel1: 'Drehung um Gelenk 2',
+      titel2: 'Beide Gelenke drehen',
+      anleitung1: 'Führen Sie die drei Schritte nacheinander aus. Mit dem Schieberegler wählen Sie den Winkel β.',
+      anleitung2: 'Stellen Sie α und β ein und spielen Sie die Bewegung ab. Vertauschen Sie dann die Reihenfolge der Matrizen.',
+      tab1: 'Drehung um Gelenk 2', tab2: 'Beide Gelenke',
+      schritt1: 'Schritt 1: verschieben', schritt2: 'Schritt 2: drehen', schritt3: 'Schritt 3: zurückverschieben',
+      vonvorn: 'Von vorn', falsch: 'Erster Versuch: nur Drehmatrix',
+      richtig: 'T_alpha @ T_beta', vertauscht: 'T_beta @ T_alpha', abspielen: 'Abspielen',
+      gelenk1: 'Gelenk 1', gelenk2: 'Gelenk 2', ziel: 'Ziel', achseX: 'x in m', achseY: 'y in m',
+      drehpunktBeta: 'Drehpunkt von T_beta', drehpunktAlpha: 'Drehpunkt von T_alpha', abriss: 'Arm 2 reißt ab',
+      info1: 'Gelenk 2 an Arm 1', info2: 'Gelenk 2 an Arm 2', info3: 'Greifer',
+      status1: [
+        'Grundstellung: Gelenk 2 soll Arm 2 um β drehen.',
+        'Schritt 1: Gelenk 2 liegt jetzt im Ursprung.',
+        'Schritt 2: Die Drehmatrix dreht um den Ursprung, also um Gelenk 2.',
+        'Schritt 3: Gelenk 2 sitzt wieder an seinem Platz.',
+      ],
+      richtigPhase: ['Zuerst T_beta: Arm 2 dreht um Gelenk 2 bei (0.4, 0).', 'Dann T_alpha: beide Arme drehen um Gelenk 1.'],
+      falschPhase: ['Zuerst T_alpha: beide Arme drehen um Gelenk 1.', 'Dann T_beta: Arm 2 dreht um (0.4, 0), dort ist kein Gelenk mehr.'],
+      richtigFertig: 'T_alpha @ T_beta: Arm 2 bleibt mit Arm 1 verbunden.',
+      falschFertig: 'T_beta @ T_alpha: T_beta dreht um (0.4, 0), Arm 2 reißt ab.',
+      falschZufall: 'T_beta @ T_alpha: Bei α = 0 fällt der Fehler nicht auf.',
+      code1: {
+        R: b => `R = drehmatrix(np.deg2rad(${b}))`,
+        falsch: 'R @ arm[2]',
+        gelenk: 'gelenk2 = arm[1]',
+        s1: 'greifer_verschoben = arm[2] - gelenk2',
+        s2: 'greifer_gedreht = R @ greifer_verschoben',
+        s3: 'greifer_neu = greifer_gedreht + gelenk2',
+      },
+      code2: {
+        alpha: a => `T_alpha = transformationsmatrix(np.deg2rad(${a}), 0, 0)`,
+        beta: b => `T_beta = drehung_um_punkt(np.deg2rad(${b}), arm[1])`,
+        richtig: 'T_arm2 = T_alpha @ T_beta',
+        falsch: 'T_falsch = T_beta @ T_alpha',
+      },
+    },
+    en: {
+      titel1: 'Rotation about joint 2',
+      titel2: 'Rotating both joints',
+      anleitung1: 'Carry out the three steps one after the other. Use the slider to choose the angle β.',
+      anleitung2: 'Set α and β and play the motion. Then swap the order of the matrices.',
+      tab1: 'Rotation about joint 2', tab2: 'Both joints',
+      schritt1: 'Step 1: shift', schritt2: 'Step 2: rotate', schritt3: 'Step 3: shift back',
+      vonvorn: 'Start over', falsch: 'First attempt: rotation matrix only',
+      richtig: 'T_alpha @ T_beta', vertauscht: 'T_beta @ T_alpha', abspielen: 'Play',
+      gelenk1: 'Joint 1', gelenk2: 'Joint 2', ziel: 'Target', achseX: 'x in m', achseY: 'y in m',
+      drehpunktBeta: 'Center of T_beta', drehpunktAlpha: 'Center of T_alpha', abriss: 'Arm 2 comes off',
+      info1: 'Joint 2 on arm 1', info2: 'Joint 2 on arm 2', info3: 'Gripper',
+      status1: [
+        'Home position: joint 2 is to rotate arm 2 by β.',
+        'Step 1: joint 2 now lies at the origin.',
+        'Step 2: the rotation matrix rotates about the origin, i.e. about joint 2.',
+        'Step 3: joint 2 is back in its place.',
+      ],
+      richtigPhase: ['First T_beta: arm 2 rotates about joint 2 at (0.4, 0).', 'Then T_alpha: both arms rotate about joint 1.'],
+      falschPhase: ['First T_alpha: both arms rotate about joint 1.', 'Then T_beta: arm 2 rotates about (0.4, 0), where there is no joint any more.'],
+      richtigFertig: 'T_alpha @ T_beta: arm 2 stays connected to arm 1.',
+      falschFertig: 'T_beta @ T_alpha: T_beta rotates about (0.4, 0), arm 2 comes off.',
+      falschZufall: 'T_beta @ T_alpha: at α = 0 the mistake goes unnoticed.',
+      code1: {
+        R: b => `R = rotation_matrix(np.deg2rad(${b}))`,
+        falsch: 'R @ arm[2]',
+        gelenk: 'joint2 = arm[1]',
+        s1: 'gripper_shifted = arm[2] - joint2',
+        s2: 'gripper_rotated = R @ gripper_shifted',
+        s3: 'gripper_new = gripper_rotated + joint2',
+      },
+      code2: {
+        alpha: a => `T_alpha = transformation_matrix(np.deg2rad(${a}), 0, 0)`,
+        beta: b => `T_beta = rotation_about_point(np.deg2rad(${b}), arm[1])`,
+        richtig: 'T_arm2 = T_alpha @ T_beta',
+        falsch: 'T_wrong = T_beta @ T_alpha',
+      },
+    },
+  };
+  const parameter = new URLSearchParams(location.search);
+  const sprache = parameter.get('lang') === 'en' ? 'en' : 'de';
+  const T = TEXTE[sprache];
+  document.documentElement.lang = sprache;
+
+  // ---------- Farben und Geometrie ----------
+  const BLAU = '#005A94', ORANGE = '#E87846', ROT = '#E60000', GELB = '#FFEC7F', GRAU = '#484949';
+  const SCHATTEN = 'rgba(72,73,73,0.22)';
+  const GELENK2 = [0.4, 0], GREIFER = [0.7, 0];
+  const BAUTEIL = [[0.66, -0.02], [0.74, -0.02], [0.74, 0.02], [0.66, 0.02]];
+
+  const rad = w => w * Math.PI / 180;
+  const plus = (p, q) => [p[0] + q[0], p[1] + q[1]];
+  const minus = (p, q) => [p[0] - q[0], p[1] - q[1]];
+  const mal = (p, k) => [p[0] * k, p[1] * k];
+  const laenge = p => Math.hypot(p[0], p[1]);
+  const dreh = (p, w) => [Math.cos(w) * p[0] - Math.sin(w) * p[1], Math.sin(w) * p[0] + Math.cos(w) * p[1]];
+  const drehUm = (p, w, z) => plus(dreh(minus(p, z), w), z);
+  const begrenzt = x => Math.min(1, Math.max(0, x));
+  const sanft = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
+  // Zahlen wie im Skript: höchstens drei Nachkommastellen, ohne Nullen am Ende
+  function zahl(v, codeMinus) {
+    let r = Math.round(v * 1000) / 1000;
+    if (Math.abs(r) < 0.0005) r = 0;
+    const s = String(r);
+    return codeMinus ? s : s.replace('-', '−');
+  }
+  const punkt = (p, codeMinus) => `(${zahl(p[0], codeMinus)}, ${zahl(p[1], codeMinus)})`;
+
+  // ---------- Zeichnen ----------
+  // Sichtbarer Bereich in m, 1 m = MASS px
+  const X0 = -1.02, Y1 = 0.82, MASS = 440 / 1.56;
+  const X1 = X0 + 640 / MASS, Y0 = Y1 - 440 / MASS;
+  const px = x => ((x - X0) * MASS).toFixed(1);
+  const py = y => ((Y1 - y) * MASS).toFixed(1);
+
+  const linie = (p, q, farbe, breite, extra = '') =>
+    `<line x1="${px(p[0])}" y1="${py(p[1])}" x2="${px(q[0])}" y2="${py(q[1])}" stroke="${farbe}" stroke-width="${breite}" stroke-linecap="round" ${extra}/>`;
+  const kreis = (m, r, extra) => `<circle cx="${px(m[0])}" cy="${py(m[1])}" r="${r}" ${extra}/>`;
+  const vieleck = (ecken, extra) =>
+    `<polygon points="${ecken.map(e => px(e[0]) + ',' + py(e[1])).join(' ')}" ${extra}/>`;
+  function text(p, inhalt, farbe, anker = 'middle', groesse = 13, extra = '') {
+    return `<text x="${px(p[0])}" y="${py(p[1])}" fill="${farbe}" font-size="${groesse}" text-anchor="${anker}" ` +
+      `dominant-baseline="middle" paint-order="stroke" stroke="#fff" stroke-width="4" stroke-linejoin="round" ${extra}>${inhalt}</text>`;
+  }
+  const arm = (p, q, farbe, deckkraft = 1) => linie(p, q, farbe, 9, `opacity="${deckkraft}"`);
+  const gelenk = (p, farbe = GRAU, deckkraft = 1) =>
+    kreis(p, 5.5, `fill="#fff" stroke="${farbe}" stroke-width="2" opacity="${deckkraft}"`);
+  const bauteil = (ecken, deckkraft = 1) =>
+    vieleck(ecken, `fill="${GELB}" stroke="${BLAU}" stroke-width="1.5" opacity="${deckkraft}"`);
+  const pfeil = (p, q, farbe, extra = '') =>
+    linie(p, q, farbe, 3, `marker-end="url(#spitze-${farbe === ROT ? 'rot' : 'orange'})" ${extra}`);
+
+  // Kreisbogen um m mit Radius r von Winkel w0 bis w1 (Radiant, mathematisch positiv)
+  function bogen(m, r, w0, w1, farbe, mitSpitze) {
+    const a = plus(m, [r * Math.cos(w0), r * Math.sin(w0)]);
+    const b = plus(m, [r * Math.cos(w1), r * Math.sin(w1)]);
+    const gross = Math.abs(w1 - w0) > Math.PI ? 1 : 0;
+    const richtung = w1 > w0 ? 0 : 1;
+    const rp = (r * MASS).toFixed(1);
+    return `<path d="M ${px(a[0])} ${py(a[1])} A ${rp} ${rp} 0 ${gross} ${richtung} ${px(b[0])} ${py(b[1])}" ` +
+      `fill="none" stroke="${farbe}" stroke-width="3" ${mitSpitze ? 'marker-end="url(#spitze-orange)"' : ''}/>`;
+  }
+
+  // Beschriftung neben einem Punkt in Richtung r (Einheitsvektor)
+  function textDaneben(p, r, abstand, inhalt, farbe) {
+    let q = plus(p, mal(r, abstand));
+    let anker = r[0] > 0.35 ? 'start' : (r[0] < -0.35 ? 'end' : 'middle');
+    // Am Rand des Bildes auf die andere Seite des Punktes ausweichen
+    if (anker === 'start' && q[0] > X1 - 0.3) { anker = 'end'; q = [p[0] - abstand, q[1]]; }
+    if (anker === 'end' && q[0] < X0 + 0.3) { anker = 'start'; q = [p[0] + abstand, q[1]]; }
+    q = [q[0], Math.min(Math.max(q[1], Y0 + 0.04), Y1 - 0.04)];
+    return text(q, inhalt, farbe, anker);
+  }
+
+  function hintergrund() {
+    let s = `<defs>
+      <marker id="spitze-orange" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="${ORANGE}"/></marker>
+      <marker id="spitze-rot" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="${ROT}"/></marker>
+      <marker id="spitze-achse" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+        <path d="M0,0 L10,5 L0,10 z" fill="${GRAU}"/></marker>
+    </defs>`;
+    s += `<rect x="0" y="0" width="640" height="440" fill="#fff"/>`;
+    // Gitter im Abstand 0.1 m
+    for (let i = Math.ceil(X0 * 10); i <= Math.floor(X1 * 10); i++) {
+      s += linie([i / 10, Y0], [i / 10, Y1], '#ebebe6', 1, 'stroke-linecap="butt"');
+    }
+    for (let i = Math.ceil(Y0 * 10); i <= Math.floor(Y1 * 10); i++) {
+      s += linie([X0, i / 10], [X1, i / 10], '#ebebe6', 1, 'stroke-linecap="butt"');
+    }
+    // Achsen mit Beschriftung im Abstand 0.2 m
+    s += linie([X0 + 0.02, 0], [X1 - 0.02, 0], GRAU, 1.5, 'marker-end="url(#spitze-achse)"');
+    s += linie([0, Y0 + 0.02], [0, Y1 - 0.02], GRAU, 1.5, 'marker-end="url(#spitze-achse)"');
+    for (let i = -10; i <= 12; i += 2) {
+      const x = i / 10;
+      if (i !== 0 && x > X0 + 0.05 && x < X1 - 0.08) s += text([x, -0.04], zahl(x), '#8a8a85', 'middle', 10);
+    }
+    for (let i = -6; i <= 8; i += 2) {
+      const y = i / 10;
+      if (i !== 0 && y > Y0 + 0.03 && y < Y1 - 0.06) s += text([-0.02, y], zahl(y), '#8a8a85', 'end', 10);
+    }
+    s += text([X1 - 0.03, 0.045], T.achseX, GRAU, 'end', 12);
+    s += text([0.03, Y1 - 0.035], T.achseY, GRAU, 'start', 12);
+    return s;
+  }
+
+  function statuszeile(inhalt) {
+    $('status').textContent = inhalt;
+    bild.setAttribute('aria-label', inhalt);
+  }
+
+  // ---------- Zustand ----------
+  const zustand = {
+    reiter: parameter.get('tab') === '2' ? 2 : 1,
+    // Reiter 1: pos läuft stetig von 0 (Grundstellung) bis 3 (nach Schritt 3)
+    beta1: 90, pos: 0, falsch: false,
+    // Reiter 2: phase läuft von 0 (Grundstellung) über 1 (erste Matrix) bis 2 (beide Matrizen)
+    alpha2: 30, beta2: 60, vertauscht: false, phase: 2, spielt: false, lauf: 0,
+    animation: null,
+  };
+  const bild = document.getElementById('bild');
+  const $ = id => document.getElementById(id);
+  const ohneBewegung = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Lässt eine Größe von a nach b laufen und ruft danach fertig() auf
+  function animiere(setzen, a, b, dauer, fertig) {
+    if (zustand.animation) cancelAnimationFrame(zustand.animation);
+    if (ohneBewegung) dauer = 0;
+    const start = performance.now();
+    function bildchen(jetzt) {
+      const t = dauer > 0 ? begrenzt((jetzt - start) / dauer) : 1;
+      setzen(a + (b - a) * sanft(t));
+      zustand.animation = t < 1 ? requestAnimationFrame(bildchen) : null;
+      zeichne();
+      if (t >= 1 && fertig) fertig();
+    }
+    zustand.animation = requestAnimationFrame(bildchen);
+  }
+
+  // ---------- Reiter 1 ----------
+  // Lage eines Punktes von Arm 2 bei stetigem Fortschritt s (0 bis 3)
+  function lage1(p, s, beta) {
+    const b = rad(beta);
+    if (s <= 1) return minus(p, mal(GELENK2, s));
+    if (s <= 2) return dreh(minus(p, GELENK2), b * (s - 1));
+    return plus(dreh(minus(p, GELENK2), b), mal(GELENK2, s - 2));
+  }
+
+  function zeichne1() {
+    const s = zustand.pos, beta = zustand.beta1, b = rad(beta);
+    const schritt = s > 1e-6 ? Math.ceil(s - 1e-6) : 0;  // aktueller oder zuletzt erreichter Schritt
+    const vorzeichen = beta >= 0 ? 1 : -1;
+    let g = hintergrund();
+
+    // Erster Versuch: nur die Drehmatrix, also Drehung um den Ursprung
+    if (zustand.falsch) {
+      const p = dreh(GREIFER, b);
+      g += kreis([0, 0], (0.7 * MASS).toFixed(1), `fill="none" stroke="${ROT}" stroke-width="1.5" stroke-dasharray="6 5" opacity="0.7"`);
+      g += linie([0, 0], p, ROT, 1.5, 'stroke-dasharray="6 5"');
+      g += vieleck([[-0.02, -0.02], [0.02, -0.02], [0.02, 0.02], [-0.02, 0.02]].map(e => plus(dreh(e, b), p)),
+        `fill="${ROT}" opacity="0.85"`);
+      // Beschriftung nach außen, bei senkrechtem Arm rechts daneben (oben steht die Achsenbeschriftung)
+      const r = mal(p, 1 / laenge(p));
+      g += textDaneben(p, Math.abs(r[0]) < 0.35 ? [1, 0] : r, 0.06, punkt(p), ROT);
+    }
+
+    // Kreis um Gelenk 2, auf dem der Greifer bleibt
+    const g2 = lage1(GELENK2, s, beta);
+    g += kreis(g2, (0.3 * MASS).toFixed(1), `fill="none" stroke="${ORANGE}" stroke-width="1.2" stroke-dasharray="3 5" opacity="0.6"`);
+
+    // Ziel des Greifers
+    const ziel = plus(GELENK2, [0.3 * Math.cos(b), 0.3 * Math.sin(b)]);
+    const kreuz = 0.022;
+    g += linie(plus(ziel, [-kreuz, -kreuz]), plus(ziel, [kreuz, kreuz]), GRAU, 2);
+    g += linie(plus(ziel, [-kreuz, kreuz]), plus(ziel, [kreuz, -kreuz]), GRAU, 2);
+    const greifer = lage1(GREIFER, s, beta);
+    if (laenge(minus(greifer, ziel)) > 0.12) g += text(plus(ziel, [0.035, 0.035]), T.ziel, GRAU, 'start', 12);
+
+    // Arm 1 blendet in den Schritten 1 und 2 aus, weil wir nur mit Arm 2 rechnen
+    const deckkraft1 = s <= 1 ? 1 - s : (s <= 2 ? 0 : s - 2);
+    g += arm([0, 0], GELENK2, BLAU, deckkraft1);
+    g += gelenk([0, 0], GRAU, deckkraft1);
+    // Beschriftung auf der Seite, auf der der Schatten aus Schritt 2 nicht liegt
+    if (deckkraft1 > 0.5) g += text([0, -0.1 * vorzeichen], T.gelenk1, GRAU, 'middle', 12, `opacity="${(deckkraft1 - 0.5) * 2}"`);
+
+    // Stellung vor dem aktuellen Schritt als Schatten
+    if (schritt > 0) {
+      const v = schritt - 1;
+      g += arm(lage1(GELENK2, v, beta), lage1(GREIFER, v, beta), SCHATTEN);
+      g += vieleck(BAUTEIL.map(e => lage1(e, v, beta)), `fill="none" stroke="${GRAU}" stroke-width="1.2" stroke-dasharray="4 3" opacity="0.5"`);
+    }
+
+    // Weg des Greifers im aktuellen Schritt
+    const versatz = [0, -0.09 * vorzeichen];
+    if (schritt === 1 || schritt === 3) {
+      const von = lage1(GREIFER, schritt - 1, beta);
+      if (laenge(minus(greifer, von)) > 0.03) g += pfeil(plus(von, versatz), plus(greifer, versatz), ORANGE);
+    } else if (schritt === 2) {
+      const w = b * (s - 1), luecke = 0.2 * vorzeichen;
+      if (Math.abs(w) > 0.45) {
+        g += bogen([0, 0], 0.3, luecke, w - luecke, ORANGE, true);
+        g += text([0.42 * Math.cos(w / 2), 0.42 * Math.sin(w / 2)], `${zahl(Math.round(beta * (s - 1)))}°`, ORANGE, 'middle', 13, 'font-weight="700"');
+      }
+    }
+
+    // Arm 2 und Bauteil in der aktuellen Lage
+    g += arm(g2, greifer, ORANGE);
+    g += gelenk(g2);
+    g += bauteil(BAUTEIL.map(e => lage1(e, s, beta)));
+    const r = mal(minus(greifer, g2), 1 / laenge(minus(greifer, g2)));
+    g += text(plus(g2, [0, r[1] < -0.45 ? 0.1 : -0.1]), T.gelenk2, GRAU, 'middle', 12);
+
+    // Koordinaten des Greifers auf der Seite, von der kein Pfeil kommt
+    const seite = vorzeichen > 0 ? [-r[1], r[0]] : [r[1], -r[0]];
+    g += textDaneben(greifer, seite, 0.085, punkt(greifer), BLAU);
+
+    bild.innerHTML = g;
+    statuszeile(T.status1[schritt]);
+
+    // Knöpfe: immer nur der nächste Schritt
+    const fertig = Math.abs(s - Math.round(s)) < 1e-6 && !zustand.animation;
+    ['schritt1', 'schritt2', 'schritt3'].forEach((id, i) => {
+      const naechster = fertig && Math.round(s) === i;
+      $(id).disabled = !naechster;
+      $(id).classList.toggle('next', naechster);
+    });
+    $('vonvorn').disabled = s < 1e-6;
+    $('beta1-wert').textContent = `${zahl(beta)}°`;
+    zeichneCode1(schritt, s);
+  }
+
+  function zeichneCode1(schritt, s) {
+    const c = T.code1, beta = zustand.beta1;
+    const zeilen = [{ code: c.R(beta) }];
+    if (zustand.falsch) zeilen.push({ code: c.falsch, ergebnis: punkt(dreh(GREIFER, rad(beta)), true), klasse: 'wrong' });
+    zeilen.push({ code: c.gelenk, ergebnis: punkt(GELENK2, true) });
+    [c.s1, c.s2, c.s3].forEach((code, i) => {
+      const k = i + 1;
+      const erreicht = s >= k - 1e-6;
+      zeilen.push({
+        code,
+        ergebnis: erreicht ? punkt(lage1(GREIFER, k, beta), true) : '?',
+        klasse: schritt === k ? 'active' : '',
+      });
+    });
+    zeigeCode($('code1'), zeilen);
+  }
+
+  function zeigeCode(ziel, zeilen) {
+    const breite = Math.max(...zeilen.map(z => z.code.length)) + 2;
+    ziel.innerHTML = zeilen.map(z => {
+      const kommentar = z.ergebnis ? `<span class="comment"># ${z.ergebnis}</span>` : '';
+      return `<div class="${z.klasse || ''}">${z.code.padEnd(z.ergebnis ? breite : 0)}${kommentar}</div>`;
+    }).join('');
+  }
+
+  // ---------- Reiter 2 ----------
+  // Lage von Arm 1 und Arm 2 bei stetigem Fortschritt p (0 bis 2)
+  function lage2(p) {
+    const a = rad(zustand.alpha2), b = rad(zustand.beta2);
+    if (!zustand.vertauscht) {
+      const pb = begrenzt(p), pa = begrenzt(p - 1);   // erst T_beta, dann T_alpha
+      return {
+        arm1: q => dreh(q, a * pa),
+        arm2: q => dreh(drehUm(q, b * pb, GELENK2), a * pa),
+        wirkt: p <= 1 ? 'beta' : 'alpha',
+      };
+    }
+    const pa = begrenzt(p), pb = begrenzt(p - 1);     // erst T_alpha, dann T_beta
+    return {
+      arm1: q => dreh(q, a * pa),
+      arm2: q => drehUm(dreh(q, a * pa), b * pb, GELENK2),
+      wirkt: p <= 1 ? 'alpha' : 'beta',
+    };
+  }
+
+  function zeichne2() {
+    const p = zustand.phase, l = lage2(p);
+    let g = hintergrund();
+
+    // Grundstellung als Schatten
+    g += arm([0, 0], GELENK2, SCHATTEN) + arm(GELENK2, GREIFER, SCHATTEN);
+    g += vieleck(BAUTEIL, `fill="none" stroke="${GRAU}" stroke-width="1.2" stroke-dasharray="4 3" opacity="0.5"`);
+
+    const ende1 = l.arm1(GELENK2), anfang2 = l.arm2(GELENK2), greifer = l.arm2(GREIFER);
+    const abstand = laenge(minus(ende1, anfang2));
+
+    // Drehpunkt der Matrix, die gerade wirkt
+    const zeigeBeta = zustand.spielt ? l.wirkt === 'beta' : zustand.vertauscht;
+    if (zeigeBeta) {
+      const passt = laenge(minus(ende1, GELENK2)) < 1e-3;
+      const farbe = passt ? ORANGE : ROT;
+      g += kreis(GELENK2, 11, `fill="none" stroke="${farbe}" stroke-width="2.5"`);
+      g += text(plus(GELENK2, [0.05, -0.1]), T.drehpunktBeta, farbe, 'start', 12, 'font-weight="600"');
+    } else if (zustand.spielt) {
+      g += kreis([0, 0], 11, `fill="none" stroke="${ORANGE}" stroke-width="2.5"`);
+      g += text([-0.05, -0.1], T.drehpunktAlpha, ORANGE, 'end', 12, 'font-weight="600"');
+    }
+
+    // Arme
+    g += arm([0, 0], ende1, BLAU);
+    g += arm(anfang2, greifer, ORANGE);
+    g += gelenk([0, 0]) + gelenk(ende1) + gelenk(anfang2);
+    g += bauteil(BAUTEIL.map(l.arm2));
+
+    // Lücke zwischen den Armen
+    if (abstand > 0.005) {
+      g += linie(ende1, anfang2, ROT, 2, 'stroke-dasharray="5 4"');
+      // Beschriftung auf der Seite der Lücke, die weiter von den Armen entfernt ist
+      const mitte = mal(plus(ende1, anfang2), 0.5);
+      const r = mal(minus(anfang2, ende1), 1 / abstand);
+      const armpunkte = [mal(ende1, 0.5), mal(plus(anfang2, greifer), 0.5), greifer];
+      const freiheit = n => Math.min(...armpunkte.map(q => laenge(minus(plus(mitte, mal(n, 0.15)), q))));
+      const seiten = [[r[1], -r[0]], [-r[1], r[0]]];
+      const n = freiheit(seiten[0]) >= freiheit(seiten[1]) ? seiten[0] : seiten[1];
+      if (abstand > 0.06) g += textDaneben(mitte, n, 0.06, T.abriss, ROT);
+    }
+
+    // Koordinaten des Greifers, vom Arm weg
+    const rg = minus(greifer, anfang2);
+    g += textDaneben(greifer, mal(rg, 1 / laenge(rg)), 0.075, punkt(greifer), BLAU);
+
+    let status;
+    if (zustand.spielt) {
+      status = (zustand.vertauscht ? T.falschPhase : T.richtigPhase)[p <= 1 ? 0 : 1];
+    } else if (zustand.vertauscht) {
+      status = abstand > 0.005 ? T.falschFertig : T.falschZufall;
+    } else {
+      status = T.richtigFertig;
+    }
+    bild.innerHTML = g;
+    statuszeile(status);
+
+    // Steuerung, Code und Werte
+    $('alpha2-wert').textContent = `${zahl(zustand.alpha2)}°`;
+    $('beta2-wert').textContent = `${zahl(zustand.beta2)}°`;
+    $('richtig').classList.toggle('selected', !zustand.vertauscht);
+    $('vertauscht').classList.toggle('selected', zustand.vertauscht);
+    ['richtig', 'vertauscht', 'abspielen'].forEach(id => { $(id).disabled = zustand.spielt; });
+
+    const c = T.code2, aktiv = zustand.spielt ? l.wirkt : null;
+    zeigeCode($('code2'), [
+      { code: c.alpha(zustand.alpha2), klasse: aktiv === 'alpha' ? 'active' : '' },
+      { code: c.beta(zustand.beta2), klasse: aktiv === 'beta' ? 'active' : '' },
+      { code: zustand.vertauscht ? c.falsch : c.richtig, klasse: zustand.vertauscht ? 'wrong' : '' },
+    ]);
+    $('info-v1').textContent = punkt(ende1);
+    $('info-v2').textContent = punkt(anfang2);
+    $('info-v2').style.color = abstand > 0.005 ? ROT : '';
+    $('info-v3').textContent = punkt(greifer);
+  }
+
+  // ---------- Gemeinsam ----------
+  function zeichne() {
+    if (zustand.reiter === 1) zeichne1(); else zeichne2();
+  }
+
+  function waehleReiter(n) {
+    if (zustand.animation) { cancelAnimationFrame(zustand.animation); zustand.animation = null; }
+    zustand.spielt = false;
+    zustand.phase = 2;
+    zustand.pos = Math.round(zustand.pos);
+    zustand.reiter = n;
+    $('titel').textContent = n === 1 ? T.titel1 : T.titel2;
+    $('anleitung').textContent = n === 1 ? T.anleitung1 : T.anleitung2;
+    $('tab1').classList.toggle('active', n === 1);
+    $('tab2').classList.toggle('active', n === 2);
+    $('steuerung1').hidden = n !== 1;
+    $('code1').hidden = n !== 1;
+    $('steuerung2').hidden = n !== 2;
+    $('code2').hidden = n !== 2;
+    $('info2').hidden = n !== 2;
+    zeichne();
+  }
+
+  // Beschriftungen setzen
+  ['tab1', 'tab2', 'schritt1', 'schritt2', 'schritt3', 'vonvorn', 'richtig', 'vertauscht', 'abspielen']
+    .forEach(id => { $(id).textContent = T[id]; });
+  $('falsch-text').textContent = T.falsch;
+  $('info-l1').textContent = T.info1;
+  $('info-l2').textContent = T.info2;
+  $('info-l3').textContent = T.info3;
+  document.title = 'SCARA: ' + T.titel1;
+
+  // Ereignisse Reiter 1
+  $('tab1').addEventListener('click', () => waehleReiter(1));
+  $('tab2').addEventListener('click', () => waehleReiter(2));
+  $('beta1').addEventListener('input', e => { zustand.beta1 = Number(e.target.value); zeichne(); });
+  [1, 2, 3].forEach(k => $('schritt' + k).addEventListener('click', () => {
+    animiere(v => { zustand.pos = v; }, k - 1, k, 1100);
+  }));
+  $('vonvorn').addEventListener('click', () => {
+    if (zustand.animation) { cancelAnimationFrame(zustand.animation); zustand.animation = null; }
+    zustand.pos = 0;
+    zeichne();
+  });
+  $('falsch').addEventListener('change', e => { zustand.falsch = e.target.checked; zeichne(); });
+
+  // Ereignisse Reiter 2
+  $('alpha2').addEventListener('input', e => { zustand.alpha2 = Number(e.target.value); zeichne(); });
+  $('beta2').addEventListener('input', e => { zustand.beta2 = Number(e.target.value); zeichne(); });
+  $('richtig').addEventListener('click', () => { zustand.vertauscht = false; zeichne(); });
+  $('vertauscht').addEventListener('click', () => { zustand.vertauscht = true; zeichne(); });
+  $('abspielen').addEventListener('click', () => {
+    const lauf = ++zustand.lauf;
+    zustand.spielt = true;
+    zustand.phase = 0;
+    zeichne();
+    // Erste Matrix, kurze Pause, zweite Matrix
+    animiere(v => { zustand.phase = v; }, 0, 1, 1300, () => {
+      setTimeout(() => {
+        if (!zustand.spielt || zustand.lauf !== lauf) return;
+        animiere(v => { zustand.phase = v; }, 1, 2, 1300, () => {
+          zustand.spielt = false;
+          zeichne();
+        });
+      }, ohneBewegung ? 0 : 400);
+    });
+  });
+
+  waehleReiter(zustand.reiter);
+})();
+</script>
+</body>
+</html>

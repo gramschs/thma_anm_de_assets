@@ -1,0 +1,186 @@
+\documentclass[11pt]{standalone}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage[no-math]{fontspec}
+\usepackage{unicode-math}
+\setmainfont{Libertinus Sans}
+\setsansfont{Libertinus Sans}
+\setmathfont{Libertinus Math}
+\usepackage{pgf,xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, backgrounds, calc}
+\usepackage{pgfplots}
+\pgfplotsset{compat=newest}
+\usepackage{pifont}
+
+\begin{document}
+
+\definecolor{my_darkgray}{HTML}{484949}
+\definecolor{my_lightgray}{HTML}{F3F4F4}
+\definecolor{my_darkblue}{HTML}{005A94}
+\definecolor{my_lightblue}{HTML}{CCDEE9}
+\definecolor{my_yellow}{HTML}{FFEC7F}
+\definecolor{my_red}{HTML}{E60000}
+\definecolor{my_orange}{HTML}{E87846}
+
+\begin{tikzpicture}[
+  show background rectangle,
+  background rectangle/.style={fill=my_lightgray, rounded corners=8pt},
+  inner frame sep=0.8cm,
+  annotation/.style={draw=my_darkgray, thick, -{Stealth[length=7pt, width=5pt]}}
+]
+
+%-----------------------------------------------------------------------
+% Knotenkoordinaten (Rautenform)
+%-----------------------------------------------------------------------
+\coordinate (A) at (4, 6);    % oberer Knoten
+\coordinate (B) at (1, 3);    % Knoten Mitte links
+\coordinate (C) at (7, 3);    % Knoten Mitte rechts
+\coordinate (D) at (4, 0);    % unterer Knoten
+
+%-----------------------------------------------------------------------
+% Leitungen (zuerst, damit Widerstandsboxen darübergezeichnet werden)
+%-----------------------------------------------------------------------
+\draw[draw=my_darkblue, ultra thick] (A) -- (B);   % linker Zweig oben
+\draw[draw=my_darkblue, ultra thick] (B) -- (D);   % linker Zweig unten
+\draw[draw=my_darkblue, ultra thick] (A) -- (C);   % rechter Zweig oben
+\draw[draw=my_darkblue, ultra thick] (C) -- (D);   % rechter Zweig unten
+\draw[draw=my_darkblue, ultra thick] (B) -- (C);   % Brückenzweig
+% Außenleitung mit Spannungsquelle (rechts) – mit Lücke für Batteriesymbol:
+\draw[draw=my_darkblue, ultra thick]
+    (D) -- (9.0, 0) -- (9.0, 2.8);
+\draw[draw=my_darkblue, ultra thick]
+    (9.0, 3.2) -- (9.0, 6) -- (A);
+
+%-----------------------------------------------------------------------
+% Widerstandsboxen
+% Jede Box ist ein my_lightblue-Rechteck, zentriert am Mittelpunkt des
+% jeweiligen Drahtstücks, rotiert parallel zur Drahtrichtung.
+% Halbbreite (entlang Draht): 0.6, Halbhöhe (quer): 0.28
+%-----------------------------------------------------------------------
+
+% R1: Mittelpunkt A(4,6) -> B(1,3) = (2.5, 4.5)
+% Drahtrichtung SW (225 deg) => Rotation 45 deg
+\filldraw[fill=my_lightblue, draw=my_darkblue, thick,
+          rotate around={45:(2.5,4.5)}]
+    (1.9,4.22) rectangle (3.1,4.78);
+\node[font=\small\bfseries, text=my_darkblue,
+      rotate=45] at (2.5, 4.5) {$R_1$};
+
+% R2: Mittelpunkt B(1,3) -> D(4,0) = (2.5, 1.5)
+% Drahtrichtung SE (-45 deg) => Rotation -45 deg
+\filldraw[fill=my_lightblue, draw=my_darkblue, thick,
+          rotate around={-45:(2.5,1.5)}]
+    (1.9,1.22) rectangle (3.1,1.78);
+\node[font=\small\bfseries, text=my_darkblue,
+      rotate=-45] at (2.5, 1.5) {$R_2$};
+
+% R3: Mittelpunkt A(4,6) -> C(7,3) = (5.5, 4.5)
+% Drahtrichtung SE (-45 deg) => Rotation -45 deg
+\filldraw[fill=my_lightblue, draw=my_darkblue, thick,
+          rotate around={-45:(5.5,4.5)}]
+    (4.9,4.22) rectangle (6.1,4.78);
+\node[font=\small\bfseries, text=my_darkblue,
+      rotate=-45] at (5.5, 4.5) {$R_3$};
+
+% R4: Mittelpunkt C(7,3) -> D(4,0) = (5.5, 1.5)
+% Drahtrichtung SW (225 deg) => Rotation 45 deg
+% Hervorgehoben (my_yellow): R4 ist der variable Messwiderstand
+\filldraw[fill=my_yellow, draw=my_darkblue, thick,
+          rotate around={45:(5.5,1.5)}]
+    (4.9,1.22) rectangle (6.1,1.78);
+\node[font=\small\bfseries, text=my_darkblue,
+      rotate=45] at (5.5, 1.5) {$R_4$};
+% Hinweis: R4 ist variabel (Messwiderstand)
+\node[font=\footnotesize, text=my_darkgray, anchor=north west]
+    at (5.5, 1.3) {(variabel)};
+
+% RL: Mittelpunkt B(1,3) -> C(7,3) = (4, 3)
+% Horizontal => keine Rotation
+\filldraw[fill=my_lightblue, draw=my_darkblue, thick]
+    (3.3, 2.65) rectangle (4.7, 3.35);
+\node[font=\small\bfseries, text=my_darkblue]
+    at (4, 3) {$R_B$};
+
+% U0: Batteriesymbol – Striche direkt an den Zuleitungen, kein Spalt
+% - Pol (kurz, dick) bei y=2.8, direkt am unteren Drahtende
+% + Pol (lang, dünn) bei y=3.2, direkt am oberen Drahtanfang
+\draw[draw=my_darkblue, line width=3pt] (8.75, 2.8) -- (9.25, 2.8);   % - Pol
+\draw[draw=my_darkblue, line width=3pt]  (8.55, 3.2) -- (9.45, 3.2);   % + Pol
+% Beschriftung rechts neben dem Symbol
+\node[font=\small\bfseries, text=my_darkblue, anchor=west]
+    at (9.55, 3.0) {$U_0$};
+\node[font=\small\bfseries, text=my_darkgray, anchor=west]
+    at (8.55, 3.5) {$+$};
+\node[font=\small\bfseries, text=my_darkgray, anchor=west]
+    at (8.55, 2.5) {$-$};
+
+%-----------------------------------------------------------------------
+% Knotenlabels A, B, C, D
+%-----------------------------------------------------------------------
+\node[font=\small\bfseries, text=my_darkgray, anchor=south]
+    at (4, 6.18) {$K_1$};
+\node[font=\small\bfseries, text=my_darkgray, anchor=east]
+    at (0.82, 3) {$K_2$};
+\node[font=\small\bfseries, text=my_darkgray, anchor=west]
+    at (7.18, 3) {$K_3$};
+%\node[font=\small\bfseries, text=my_darkgray, anchor=north]
+%    at (4, -0.18) {$D$};
+
+%-----------------------------------------------------------------------
+% Knotenpunkte (farbige Kreise)
+%-----------------------------------------------------------------------
+\foreach \p in {A, B, C, D} {
+    \filldraw[fill=my_orange, draw=my_lightgray, thick] (\p) circle (0.13);
+}
+
+%-----------------------------------------------------------------------
+% Stromrichtungspfeile
+% Platziert zwischen Knoten und Widerstandsbox (0.15 bis 0.33 der Strecke)
+%-----------------------------------------------------------------------
+
+% I0: auf der oberen Außenleitung, kurz vor Knoten A (von rechts kommend)
+\draw[annotation] (5.2, 6) -- (4.4, 6);
+\node[font=\small, text=my_darkgray, anchor=south] at (4.8, 6.08) {$I_0$};
+
+% I1 (Wiederholung): kurz vor Knoten B, für Knotenregel in B
+\draw[annotation] ($(A)!0.67!(B)$) -- ($(A)!0.82!(B)$);
+\node[font=\small, text=my_darkgray, anchor=east]
+    at ($(A)!0.75!(B)+(-0.15, 0.1)$) {$I_1$};
+
+% I3 (Wiederholung): kurz vor Knoten C, für Knotenregel in C
+\draw[annotation] ($(A)!0.67!(C)$) -- ($(A)!0.82!(C)$);
+\node[font=\small, text=my_darkgray, anchor=west]
+    at ($(A)!0.75!(C)+(0.15, 0.1)$) {$I_3$};
+
+% I4 (Wiederholung): kurz nach Knoten C, für Knotenregel in C
+\draw[annotation] ($(C)!0.15!(D)$) -- ($(C)!0.30!(D)$);
+\node[font=\small, text=my_darkgray, anchor=west]
+    at ($(C)!0.22!(D)+(0.1, 0.0)$) {$I_4$};
+\draw[annotation] ($(A)!0.15!(B)$) -- ($(A)!0.33!(B)$);
+\node[font=\small, text=my_darkgray, anchor=east]
+    at ($(A)!0.24!(B)+(-0.15, 0.1)$) {$I_1$};
+
+% I2: B -> D (linker Zweig unten), vor dem Widerstand
+\draw[annotation] ($(B)!0.15!(D)$) -- ($(B)!0.33!(D)$);
+\node[font=\small, text=my_darkgray, anchor=east]
+    at ($(B)!0.24!(D)+(-0.15, 0.0)$) {$I_2$};
+
+% I3: A -> C (rechter Zweig oben), vor dem Widerstand
+\draw[annotation] ($(A)!0.15!(C)$) -- ($(A)!0.33!(C)$);
+\node[font=\small, text=my_darkgray, anchor=west]
+    at ($(A)!0.24!(C)+(0.15, 0.1)$) {$I_3$};
+
+% I4: C -> D (rechter Zweig unten), nach dem Widerstand
+\draw[annotation] ($(C)!0.68!(D)$) -- ($(C)!0.82!(D)$);
+\node[font=\small, text=my_darkgray, anchor=west]
+    at ($(C)!0.70!(D)+(0.1, -0.3)$) {$I_4$};
+
+% I: B -> C (Brückenzweig), nach dem Widerstand
+\draw[annotation] ($(B)!0.63!(C)$) -- ($(B)!0.76!(C)$);
+\node[font=\small, text=my_darkgray, anchor=south]
+    at ($(B)!0.695!(C)+(0, 0.18)$) {$I$};
+
+\end{tikzpicture}
+
+\end{document}
